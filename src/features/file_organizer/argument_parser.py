@@ -22,7 +22,7 @@ def parse_arguments():
         "--folder_structure",
         type=str,
         default="%Y/%m - %B",
-        help="Folder tree in which your files will be organized based on their metadata. Each list element will be a level in the new folder structure. To separate by subdirectories, just use a forward slash (even if you are on Windows). Defaults to '%Y/%m - %B'",
+        help="Folder tree in which your files will be organized based on their metadata. Each list element will be a level in the new folder structure. To separate by subdirectories, just use a forward slash (even if you are on Windows)",
     )
 
     parser.add_argument(
@@ -38,7 +38,7 @@ def parse_arguments():
         "--auto_clean_output",
         action="store_true",
         default=False,
-        help="Wheter we should reset the output directory before start. If `false` we will ask the user before remove any content in the output directory",
+        help="Wheter we should reset the output directory before start. If 'false' we will ask the user before remove any content in the output directory",
     )
 
     parser.add_argument(
