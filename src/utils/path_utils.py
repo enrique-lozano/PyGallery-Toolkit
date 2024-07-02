@@ -1,38 +1,25 @@
 import os
-import shutil
-from shutil import copy2
-
-from rich.prompt import Confirm
-
-from src.constants.allowed_extensions import (
-    IMG_EXTENSIONS,
-    OTHER_ALLOWED_EXTENSIONS,
-    VIDEO_EXTENSIONS,
-)
-from src.constants.user_settings import USER_SETTINGS
-from src.features.duplicates_remover.duplicates_remover import duplicates_remover
-from src.features.file_organizer.file_organizer import file_organizer
-from src.features.metadata_fixer.metadata_fixer import metadata_fixer
-from src.utils import rich_console
-from src.utils.remove_empty_folders import remove_empty_folders
-from src.utils.rich_console import (
-    console,
-    print_error,
-    print_separator,
-    print_warn,
-    progress_bar,
-)
 
 
 def get_filepaths(path: str, recursive: bool):
+    """
+    Retrieve a list of file paths from the specified directory.
+
+    Args:
+        path (str): The directory path to search for files.
+        recursive (bool): If True, search for files recursively in all subdirectories.
+                          If False, search only in the specified directory.
+
+    Returns:
+        List[Tuple[str, str]]: A list of tuples where each tuple contains the absolute path
+                               to the directory and the file name.
+    """
+
     all_filepaths: list[tuple[str, str]] = []
 
     if not recursive:
-        abspath = os.path.abspath(path)
         all_filepaths += [
-            (abspath, f)
-            for f in os.listdir(abspath)
-            if os.path.isfile(os.path.join(abspath, f))
+            (path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))
         ]
 
     else:
@@ -44,6 +31,17 @@ def get_filepaths(path: str, recursive: bool):
 
 
 def filter_filepaths(filepaths: list[tuple[str, str]], allowed_ext: set[str]):
+    """
+    Filter file paths based on allowed file extensions.
+
+    Args:
+        filepaths (List[Tuple[str, str]]): A list of tuples where each tuple contains the
+                                           absolute path to the directory and the file name.
+        allowed_ext (Set[str]): A set of allowed file extensions (e.g., {'.txt', '.jpg'}).
+
+    Returns:
+        List[Tuple[str, str]]: A list of tuples containing only the file paths with the allowed extensions.
+    """
     return [
         (fp, fn)
         for fp, fn in filepaths
@@ -51,6 +49,7 @@ def filter_filepaths(filepaths: list[tuple[str, str]], allowed_ext: set[str]):
     ]
 
 
+""" 
 def main(
     input_path: str,
     output_path: str,
@@ -217,3 +216,4 @@ def main(
 
     print()
     console.print("[green bold]\u2714 All done! Your gallery is ready!")
+ """

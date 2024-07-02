@@ -1,48 +1,30 @@
 import filecmp
-import json
 import os
 import re
 import shutil
 from datetime import datetime
-from typing import Any
+from typing import Any, List
 
 import exiftool
 from exiftool import ExifToolHelper
 
 from src.constants.user_settings import USER_SETTINGS
+from src.features.file_organizer.key_directives import (
+    custom_app_directives,
+    python_date_directives,
+)
+from src.utils import rich_console
+from src.utils.check_input_path import check_input_path
+from src.utils.confirm import confirm_question
 from src.utils.file_date_getters import get_datefile_to_organize
-from src.utils.rich_console import progress_bar
-
-python_date_directives = [
-    "a",
-    "A",
-    "w",
-    "d",
-    "b",
-    "B",
-    "m",
-    "y",
-    "Y",
-    "H",
-    "I",
-    "p",
-    "M",
-    "S",
-    "f",
-    "z",
-    "Z",
-    "j",
-    "U",
-    "W",
-    "x",
-    "x",
-    "X",
-]
-
-python_date_directives = ["%" + i for i in python_date_directives]
-
-custom_app_directives = ["software", "camera_maker", "camera_model"]
-custom_app_directives = ["%" + i for i in custom_app_directives]
+from src.utils.path_utils import get_filepaths
+from src.utils.rich_console import (
+    console,
+    print_error,
+    print_log,
+    print_warn,
+    progress_bar,
+)
 
 
 def get_metadata_str(metadata: dict[str, Any], keys: list[str]):
@@ -146,9 +128,88 @@ def make_unique_filename(new_filepath: str, current_filepath: str):
     return new_filepath
 
 
-def file_organizer(
-    filepaths: list[tuple[str, str]], output_path: str, folder_structure: list[str]
+def main(
+    input_path: str,
+    *,
+    output_path: str | None,
+    recursive: bool,
+    auto_clean_output: bool,
+    verbose: bool,
+    folder_structure: str,
+    file_name_template: str | None,
+    copy_mode: bool,
 ):
+    check_input_path(input_path)
+
+    print()
+
+    if folder_structure.strip() == "":
+        print_error(
+            "Validation error: [i]folder_structure[/i]",
+            descr="The [i]folder_structure[/i]argument can not be empty",
+        )
+
+    if output_path is None:
+        default_path = os.path.join(os.getcwd(), "output")
+        output_path = rich_console.console.input(
+            f"You have not specified the output directory. Please specify one or press Enter to use the default one [grey62]({default_path})[/grey62]: ",
+        )
+
+        if output_path is None or output_path.strip() == "":
+            output_path = default_path
+
+    print()
+
+    # Creating output directory if not exists
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+        rich_console.console.print(
+            "[blue bold][INFO]:[/blue bold] Output directory not found. A new one has been created"
+        )
+
+    # Check if output directory has some content already
+    elif len(os.listdir(output_path)) > 0:
+        if auto_clean_output:
+            print_warn(
+                "You have some files/directories in the specified output directory. Any content here will be removed and replaced by the new data. To change this behavior, run the script without the [i]auto_clean_output[/i] argument"
+            )
+
+        confirm_remove = auto_clean_output or confirm_question(
+            f"You have content in the specified output directory. To start and fill this directory, this script require the output directory to be clean. We can delete all the content in this directory now if you want. Continue?",
+            default=False,
+        )
+
+        if not confirm_remove:
+            print_error(
+                "The program require the output directory to be clean",
+                descr="Remove all the content in the output directory or specify a new one and re-run the script.",
+            )
+
+        for filename in os.listdir(output_path):
+            file_path = os.path.join(output_path, filename)
+
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print("Failed to delete %s. Reason: %s" % (file_path, e))
+
+        print()
+
+    # ------------------------------------------------- #
+    # ----------- MAIN EXECUTION PROCCESS ------------- #
+    # ------------------------------------------------- #
+
+    filepaths = get_filepaths(input_path, recursive)
+
+    if len(filepaths) == 0:
+        console.print(
+            f"[green bold][OK]:[/green bold] Ops! We can not find files to organize in your input directory. Program finish with success.\n"
+        )
+        return
+
     with exiftool.ExifToolHelper() as et:
         with progress_bar() as p:
             for path, filename in p.track(
@@ -157,7 +218,9 @@ def file_organizer(
                 filepath = os.path.join(path, filename)
 
                 new_file_location = os.path.join(
-                    get_file_location(folder_structure, output_path, filepath, et),
+                    get_file_location(
+                        folder_structure.split("/"), output_path, filepath, et
+                    ),
                     get_new_file_name(filepath, et),
                 )
 
@@ -165,4 +228,20 @@ def file_organizer(
                 new_file_location = make_unique_filename(new_file_location, filepath)
 
                 if new_file_location is not None:
-                    shutil.move(filepath, new_file_location)
+                    paths_to_log = (
+                        os.path.relpath(filepath, input_path),
+                        os.path.relpath(new_file_location, output_path),
+                    )
+
+                    if copy_mode:
+                        shutil.copy2(filepath, new_file_location)
+                        print_log(
+                            f"✅ File {paths_to_log[0]} copied to {paths_to_log[1]}",
+                            verbose,
+                        )
+                    else:
+                        shutil.move(filepath, new_file_location)
+                        print_log(
+                            f"✅ File {paths_to_log[0]} moved to {paths_to_log[1]}",
+                            verbose,
+                        )
