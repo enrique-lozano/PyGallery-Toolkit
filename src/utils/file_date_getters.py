@@ -1,45 +1,47 @@
 import os
+import re
 from datetime import datetime
 from typing import Any, Literal
 
 from exiftool import ExifToolHelper
 
 from src.constants.datetaken_templates import (
+    DATE_PATTERNS_TO_FORMATS,
     FILENAME_DATE_MAX,
     FILENAME_DATE_MIN,
-    FILENAMES,
 )
 
 
-def get_datetime_from_filename(filename: str):
-    """Get the datetime of the file based on its name.
-
-    Solution for managing the suffix thanks to: https://stackoverflow.com/questions/5045210/how-to-remove-unconverted-data-from-a-python-datetime-object
+def get_datetime_from_filename(filename: str) -> datetime | None:
     """
+    Get the datetime of the file based on its name using dynamic pattern matching.
 
-    end_date: datetime | None = None
+    This function uses regular expressions to match potential date parts in the filename.
+    It attempts to parse these parts using a set of predefined datetime formats.
+    The map of date patterns to formats is sorted from more specific to less specific
+    to ensure that more detailed formats (including minutes and seconds) are attempted first.
 
-    for date_format in FILENAMES:
-        try:
-            end_date = datetime.strptime(filename, date_format)
-            break
-        except ValueError as v:
-            ulr = len(v.args[0].partition("unconverted data remains: ")[2])
-            if ulr:
-                try:
-                    end_date = datetime.strptime(filename[:-ulr], date_format)
-                    break
-                except:
-                    continue
-            else:
+    Args:
+        filename (str): The name of the file to extract the datetime from.
+
+    Returns:
+        datetime: The extracted datetime object if a valid date is found within the defined range, else None.
+    """
+    date_to_return = None
+
+    for pattern, date_format in DATE_PATTERNS_TO_FORMATS.items():
+        match = re.search(pattern, filename)
+        if match:
+            date_str = match.group()
+            try:
+                date_to_return = datetime.strptime(date_str, date_format)
+                # Check if the year is within the valid range
+                if FILENAME_DATE_MIN <= date_to_return.year <= FILENAME_DATE_MAX:
+                    return date_to_return
+            except ValueError:
                 continue
 
-    if end_date is not None and (
-        end_date.year < FILENAME_DATE_MIN or end_date.year > FILENAME_DATE_MAX
-    ):
-        return None
-
-    return end_date
+    return None
 
 
 def get_date_from_os(filepath: str):

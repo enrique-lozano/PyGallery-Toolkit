@@ -1,27 +1,17 @@
-""" The files whose name coincides with this format will be taken into account to fix their metadata, as long as the "auto" parameter is passed to the script. 
-
-The files whose name coincides with this format will be taken into account to fix their metadata, as long as the "auto" parameter is passed to the script. The file suffix is not taken into account, that is, if we have, for example, the format VID_%Y%m%d, the files "VID_20150618 copy.jpg", "VID_20150618(1).jpg", "VID_20150618jkcdkjjkd.jpg" will also be valid to get its dates.
-
-It is appropriate that the list always go from the most precise format to least one, since the first format that matches will be the one used for the file. It should also be noted that the algorithm is not case sensitive.
-
-To check the possible options to parse, check the table here https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
-"""
 from datetime import datetime
 
-FILENAMES = [
-    "Screenshot-%Y-%m-%d-%H-%M-%S",
-    "Screenshot-%Y%m%d-%H%M%S",
-    "Screenshot_%Y-%m-%d-%H-%M-%S",
-    "Screenshot_%Y%m%d-%H%M%S",
-    "IMG_%Y%m%d_%H%M%S",
-    "IMG-%Y%m%d-WA",
-    "VID-%Y%m%d-WA",
-    "VID_%Y%m%d_%H%M%S",
-    "%Y-%m-%d %H:%M:%S",
-    "%Y-%m-%d %H.%M.%S",
-    "IMG_%Y%m%d",
-    "VID_%Y%m%d",
-]
+# Map of regex patterns to corresponding datetime formats, sorted from more specific to less specific. To check the possible options to parse, check the table here https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+DATE_PATTERNS_TO_FORMATS = {
+    r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}": "%Y-%m-%d %H:%M:%S",  # YYYY-MM-DD HH:MM:SS
+    r"\d{4}-\d{2}-\d{2} \d{2}.\d{2}.\d{2}": "%Y-%m-%d %H.%M.%S",  # YYYY-MM-DD HH.MM.SS
+    r"\d{4}-\d{2}-\d{2} at \d{2}.\d{2}.\d{2}": "%Y-%m-%d at %H.%M.%S",  # WhatsApp Image YYYY-MM-DD at HH.MM.SS
+    r"\d{8}_\d{6}": "%Y%m%d_%H%M%S",  # YYYYMMDD_HHMMSS
+    r"\d{8}-\d{6}": "%Y%m%d-%H%M%S",  # YYYYMMDD-HHMMSS
+    r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}": "%Y-%m-%d %H:%M",  # YYYY-MM-DD HH:MM
+    r"\d{4}-\d{2}-\d{2} \d{2}.\d{2}": "%Y-%m-%d %H.%M",  # YYYY-MM-DD HH.MM
+    r"\d{4}-\d{2}-\d{2}": "%Y-%m-%d",  # YYYY-MM-DD
+    r"\d{8}": "%Y%m%d",  # YYYYMMDD
+}
 
 FILENAME_DATE_MIN = 1820
 FILENAME_DATE_MAX = datetime.now().year + 5

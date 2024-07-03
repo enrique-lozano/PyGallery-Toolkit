@@ -5,12 +5,13 @@ from typing import Any, Literal
 import exiftool
 from rich.table import Table
 
-from src.constants.user_settings import USER_SETTINGS
+from src.utils.check_input_path import check_input_path
 from src.utils.file_date_getters import (
     get_date_from_exif,
     get_date_from_os,
     get_filedate,
 )
+from src.utils.path_utils import get_filepaths
 from src.utils.rich_console import console, print_log, progress_bar
 
 
@@ -22,21 +23,27 @@ FileStatus = Literal["updated"] | Literal["skipped"] | Literal["error"]
 
 
 def metadata_fixer(
-    filepaths: list[tuple[str, str]],
-    overwrite_datetime: bool,
-    fill_missing_datetime_info_from: list[
-        Literal["filename"] | Literal["filedate"] | Literal["fileexif"]
-    ],
+    input_path: str,
+    *,
+    recursive: bool,
+    verbose: bool,
+    overwrite_dates: bool,
+    os_dates: bool,
+    gps_fix: bool,
+    dates_from: list[Literal["filename"] | Literal["filedate"] | Literal["fileexif"]],
 ):
+    check_input_path(input_path)
+
+    filepaths = get_filepaths(input_path, recursive)
+
     console.print(
-        f"[blue bold][INFO]:[/blue bold] Starting the metadata-fixer with the force mode {'enabled' if overwrite_datetime else 'disabled'}.\n"
+        f"[blue bold][INFO]:[/blue bold] Starting the metadata-fixer with the force mode {'enabled' if overwrite_dates else 'disabled'}.\n"
     )
 
     results: list[FileStatus] = []
 
     def log_error(title: str):
-        print_log(f"[red]\u2716[/red] {title}")
-
+        print_log(f"❌ {title}", True)
         results.append("error")
 
     with exiftool.ExifToolHelper() as et:
@@ -69,7 +76,7 @@ def metadata_fixer(
 
                 """ We should edit the dates if the force mode is enabled or if no DateTimeOriginal tag is in the metadata"""
                 shouldEditDates = (
-                    overwrite_datetime
+                    overwrite_dates
                     or sum(
                         1
                         for key in metadata.keys()
@@ -82,7 +89,7 @@ def metadata_fixer(
                 if shouldEditDates:
                     file_datetime: datetime | None = None
 
-                    for datimegetter in fill_missing_datetime_info_from:
+                    for datimegetter in dates_from:
                         # Get the filedate based on the user settings
                         if file_datetime is None:
                             try:
@@ -107,7 +114,8 @@ def metadata_fixer(
                             )
 
                             print_log(
-                                f"[green]\u2714[/green] File {filename} -> DateTime metadata updated"
+                                f"✅ File {filename} -> DateTime metadata updated to {file_datetime}",
+                                verbose,
                             )
 
                             file_status = "updated"
@@ -120,20 +128,23 @@ def metadata_fixer(
 
                     else:
                         print_log(
-                            f"[orange1]\u2714[/orange1] File {filename} -> Skipped (date can not be found)"
+                            f"⏩ File {filename} -> Skipped (date can not be found)",
+                            verbose,
                         )
 
                 else:
-                    """print_log(
-                        f"[orange1]\u2714[/orange1] File {filename} -> Skipped (dateTimeOriginal already in metadata)"
-                    )"""
+                    print_log(
+                        f"⏩ File {filename} -> Skipped (dateTimeOriginal already in metadata)",
+                        verbose,
+                    )
 
                 # ------------------------------------------------- #
                 # ---------------- GPS EXIF FIXER ----------------- #
                 # ------------------------------------------------- #
 
                 if (
-                    metadata.get("Composite:GPSPosition") is not None
+                    gps_fix is True
+                    and metadata.get("Composite:GPSPosition") is not None
                     and sum(
                         1
                         for key in metadata.keys()
@@ -163,7 +174,8 @@ def metadata_fixer(
                         )
 
                         print_log(
-                            f"[green]\u2714[/green] File {filename} -> GPS metadata updated"
+                            f"✅ File {filename} -> GPS metadata updated",
+                            verbose,
                         )
 
                         file_status = "updated"
@@ -178,9 +190,7 @@ def metadata_fixer(
                 # ---------------- OS DATES FIXER ----------------- #
                 # ------------------------------------------------- #
 
-                if USER_SETTINGS.get("metadata_fixer").get(  # type:ignore
-                    "set_os_datetimes"
-                ):
+                if os_dates:
                     try:
                         date_to_set = get_date_from_exif(filepath, et)
 
@@ -198,7 +208,8 @@ def metadata_fixer(
                             )
 
                             print_log(
-                                f"[green]\u2714[/green] File {filename} -> File creation/modify date updated"
+                                f"✅ File {filename} -> File creation/modify date updated to {date_to_set}",
+                                verbose,
                             )
 
                             file_status = "updated"
@@ -227,12 +238,10 @@ def metadata_fixer(
     table.add_column(justify="right", style="bold")
 
     table.add_row(
-        "[green]\u2714[/green] Files with new/updated metadata",
+        "✅ Files with new/updated metadata",
         f"{results.count('updated')}",
     )
-    table.add_row(
-        "[orange1]\u2714[/orange1] Files skipped", f"{results.count('skipped')}"
-    )
-    table.add_row("[red]\u2716[/red] Files with error", f"{results.count('error')}")
+    table.add_row("⏩ Files skipped", f"{results.count('skipped')}")
+    table.add_row("❌ Files with error", f"{results.count('error')}")
 
     console.print(table)
