@@ -8,7 +8,6 @@ from typing import Any, List
 import exiftool
 from exiftool import ExifToolHelper
 
-from src.constants.user_settings import USER_SETTINGS
 from src.features.file_organizer.key_directives import (
     custom_app_directives,
     python_date_directives,

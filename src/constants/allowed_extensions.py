@@ -1,9 +1,3 @@
-from src.constants.user_settings import USER_SETTINGS
-
-OTHER_ALLOWED_EXTENSIONS: list[str] | None = USER_SETTINGS.get(
-    "include_extra_formats"
-)  # type: ignore
-
 VIDEO_EXTENSIONS = [
     ".3g2",
     ".3gp",

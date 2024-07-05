@@ -34,8 +34,7 @@ def remove_images(paths_to_remove: list[str], verbose: bool):
 def plot_images(
     paths: list[str], *, fig_title: str = "", verbose: bool, plot_disabled: bool
 ):
-    """Plot a set of images in a new window (only if the user
-    has activated the option `plot_before_confirm` in the user_settings.yaml file)."""
+    """Plot a set of images in a new window (if plotting is not disabled)."""
 
     if plot_disabled:
         return

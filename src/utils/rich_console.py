@@ -10,8 +10,6 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from src.constants.user_settings import USER_SETTINGS
-
 console = Console(highlight=False)
 __err_console = Console(stderr=True, log_time=False, log_path=False)
 
