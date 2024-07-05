@@ -10,14 +10,13 @@ from rich.columns import Columns
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
-from src.constants.user_settings import USER_SETTINGS
+from src.constants.allowed_extensions import IMG_EXTENSIONS
 from src.utils.file_date_getters import get_datefile_to_organize
+from src.utils.path_utils import filter_filepaths, get_filepaths
 from src.utils.rich_console import console, print_log, print_warn, progress_bar
 
-plot_enabled = (USER_SETTINGS.get("duplicates_search").get("plot_before_confirm")) is True  # type: ignore
 
-
-def remove_images(paths_to_remove: list[str]):
+def remove_images(paths_to_remove: list[str], verbose: bool):
     space_saved = 0
 
     for img in paths_to_remove:
@@ -25,20 +24,20 @@ def remove_images(paths_to_remove: list[str]):
 
         os.remove(img)
 
-        print_log(
-            f"[green]\u2716[/green] File {os.path.relpath(img, os.getcwd())} removed"
-        )
+        print_log(f"✅ File {os.path.relpath(img, os.getcwd())} removed", verbose)
 
     console.print(
         f"[green bold][OK]:[/green bold] All images deleted succesfully. You have saved [bold]{round(space_saved / 1000000, 2)}MB[/bold] of space!"
     )
 
 
-def plot_images(paths: list[str], fig_title: str = ""):
+def plot_images(
+    paths: list[str], *, fig_title: str = "", verbose: bool, plot_disabled: bool
+):
     """Plot a set of images in a new window (only if the user
     has activated the option `plot_before_confirm` in the user_settings.yaml file)."""
 
-    if not plot_enabled:  # type: ignore
+    if plot_disabled:
         return
 
     plt.ioff()
@@ -52,7 +51,11 @@ def plot_images(paths: list[str], fig_title: str = ""):
 
         to_be_plotted = to_be_plotted[:16]
 
-    print_log(f"Plotting [bold]{len(to_be_plotted)}[/bold] images...", start="\n")
+    print_log(
+        f"Plotting [bold]{len(to_be_plotted)}[/bold] images...",
+        is_verbose=verbose,
+        start="\n",
+    )
 
     figure = plt.figure(
         fig_title + (f" (Showing 16 of {len(paths)})" if len(paths) > 16 else "")
@@ -104,8 +107,13 @@ def find_file_to_keep(
     return files[0]
 
 
-def duplicates_remover(
-    filepaths: list[tuple[str, str]], hash_size: int, similarity: int
+def main(
+    input_path: str,
+    hash_size: int,
+    similarity: int,
+    recursive: bool,
+    verbose: bool,
+    plot_disabled: bool,
 ):
     """Optionally find and remove duplicate images"""
 
@@ -117,6 +125,11 @@ def duplicates_remover(
     console.print(f"\t[blue]-[/blue] Hash size: [bold]{hash_size}[/bold]")
 
     print()
+
+    filepaths = filter_filepaths(
+        get_filepaths(input_path, recursive),
+        allowed_ext=set(IMG_EXTENSIONS),
+    )
 
     duplicates_imgs: list[tuple[list[str], float]] = []
 
@@ -159,9 +172,7 @@ def duplicates_remover(
                         duplicates.append(file1[0])
 
                     duplicates.append(file2[0])
-                    _similarity = round(
-                        100 * ((file1[1] - file2[1]) / hash_size**2), 2
-                    )
+                    _similarity = round(100 * ((file1[1] - file2[1]) / hash_size**2), 2)
 
         already_found = False
         for founded in duplicates_imgs:
@@ -240,18 +251,23 @@ def duplicates_remover(
             set(paths_to_remove)
         )  # Remove duplicates files from the list to be removed
 
-        plot_images(paths_to_remove, "Images to be removed")
+        plot_images(
+            paths_to_remove,
+            fig_title="Images to be removed",
+            verbose=verbose,
+            plot_disabled=plot_disabled,
+        )
 
         confirm_remove = Confirm.ask(
             f"\nThis action will delete [bold]{len(paths_to_remove)}[/bold] images from the output directory. Are you sure?",
             default=False,
         )
 
-        if plot_enabled:
+        if not plot_disabled:
             plt.close()
 
         if confirm_remove is True:
-            remove_images(paths_to_remove=paths_to_remove)
+            remove_images(paths_to_remove=paths_to_remove, verbose=verbose)
 
         else:
             console.print(
@@ -267,6 +283,8 @@ def duplicates_remover(
             plot_images(
                 paths=images_in_group,
                 fig_title=f"Group {index + 1}/{len(duplicates_imgs)}",
+                verbose=verbose,
+                plot_disabled=plot_disabled,
             )
 
             console.print(
@@ -337,7 +355,7 @@ def duplicates_remover(
                     f"\n[blue bold][INFO]:[/blue bold] No images to be removed. Nothing to do with this group!"
                 )
 
-                if plot_enabled:
+                if not plot_disabled:
                     plt.close()
 
                 continue
@@ -346,7 +364,7 @@ def duplicates_remover(
                 f"\n[blue bold][INFO]:[/blue bold] Number of images to be removed: {len(paths_to_remove)}\n"
             )
 
-            remove_images(paths_to_remove=paths_to_remove)
+            remove_images(paths_to_remove=paths_to_remove, verbose=verbose)
 
-            if plot_enabled:
+            if not plot_disabled:
                 plt.close()

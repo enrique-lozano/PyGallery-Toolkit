@@ -1,5 +1,5 @@
 import argparse
-from typing import List, Literal
+from typing import List
 
 from src.utils.add_common_args import add_common_args
 
