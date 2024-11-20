@@ -101,15 +101,15 @@ def get_file_location(
     return path_destination
 
 
-def get_new_file_name(filepath: str, et: ExifToolHelper):
-    template: str | None = USER_SETTINGS.get("file_organizer").get("file_name_template")  # type: ignore
-
+def get_new_file_name(
+    filepath: str, *, exiftool_helper: ExifToolHelper, template: str | None
+):
     if template == "" or template is None:
         return os.path.basename(filepath)
 
     base, extension = os.path.splitext(filepath)
 
-    return f"{replace_attr_variables(template, filepath, et)}{extension}"
+    return f"{replace_attr_variables(template, filepath, exiftool_helper)}{extension}"
 
 
 def make_unique_filename(new_filepath: str, current_filepath: str):
@@ -220,7 +220,9 @@ def main(
                     get_file_location(
                         folder_structure.split("/"), output_path, filepath, et
                     ),
-                    get_new_file_name(filepath, et),
+                    get_new_file_name(
+                        filepath, exiftool_helper=et, template=file_name_template
+                    ),
                 )
 
                 new_file_location = os.path.abspath(new_file_location)
